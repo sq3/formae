@@ -40,6 +40,7 @@ func (p PKL) serializeWithPKL(data any, options *plugin.SerializeOptions) (strin
 	includes := []string{
 		"pkl.formae@" + Version,
 		"aws.aws@" + Version,
+		"metakube.metakube@" + Version,
 	}
 
 	err = fs.WalkDir(generator, ".", func(path string, d fs.DirEntry, err error) error {

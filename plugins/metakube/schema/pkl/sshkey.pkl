@@ -1,0 +1,50 @@
+/*
+ * © 2025 Platform Engineering Labs Inc.
+ *
+ * SPDX-License-Identifier: FSL-1.1-ALv2
+ */
+
+module metakube.sshkey
+
+import "../../../pkl/schema/formae.pkl"
+import "metakube.pkl"
+
+const type = "MetaKube::Project::SSHKey"
+
+// SSH key resolvable for references
+open class SSHKeyResolvable extends formae.Resolvable {
+    hidden type = module.type
+
+    hidden id: SSHKeyResolvable = (this) {
+        property = "id"
+    }
+    hidden name: SSHKeyResolvable = (this) {
+        property = "name"
+    }
+}
+
+@metakube.ResourceHint {
+    type = module.type
+    identifier = "id"
+}
+open class SSHKey extends formae.Resource {
+    @metakube.FieldHint
+    projectID: String
+
+    @metakube.FieldHint
+    name: String
+
+    @metakube.FieldHint{writeOnly = true}
+    publicKey: String
+
+    // Computed fields (returned by API, not set by user)
+    creationTimestamp: String?
+    fingerprint: String?
+
+    hidden parent = this
+
+    hidden res: SSHKeyResolvable = new {
+        label = parent.label
+        stack = parent.stack?.label
+    }
+}

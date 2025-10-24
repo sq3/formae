@@ -1,0 +1,31 @@
+/*
+ * © 2025 Platform Engineering Labs Inc.
+ *
+ * SPDX-License-Identifier: FSL-1.1-ALv2
+ */
+
+module metakube
+
+import "../../../pkl/schema/formae.pkl"
+
+open class Config {
+  hidden fixed type: String = "MetaKube"
+  hidden host: String = "https://metakube.syseleven.de"
+  hidden token: String
+  hidden projectID: String?
+
+  fixed Type: String = type
+  fixed Host: String = host
+  fixed Token: String = token
+  fixed ProjectID: String? = projectID
+}
+
+class FieldHint extends formae.FieldHint {}
+
+class ResourceHint extends formae.ResourceHint {
+  hidden outputKeyTransformation: (String) -> String = (it) -> it
+}
+
+class SubResourceHint extends formae.SubResourceHint {
+  hidden outputKeyTransformation: (String) -> String = (it) -> it
+}

@@ -1,0 +1,155 @@
+/*
+ * © 2025 Platform Engineering Labs Inc.
+ *
+ * SPDX-License-Identifier: FSL-1.1-ALv2
+ */
+
+module metakube.nodedeployment
+
+import "../../../pkl/schema/formae.pkl"
+import "metakube.pkl"
+
+const type = "MetaKube::Kubernetes::NodeDeployment"
+
+// Operating system configurations
+@metakube.SubResourceHint
+open class UbuntuOS extends formae.SubResource {
+    distUpgradeOnBoot: Boolean?
+}
+
+@metakube.SubResourceHint
+open class FlatcarOS extends formae.SubResource {
+    disableAutoUpdate: Boolean?
+}
+
+// Cloud provider node configurations
+
+// AWS node specification
+@metakube.SubResourceHint
+open class AWSNodeSpec extends formae.SubResource {
+    instanceType: String
+    diskSize: Int?
+    volumeType: String?
+    availabilityZone: String?
+    subnetID: String?
+    assignPublicIP: Boolean?
+    ami: String?
+    tags: Map<String, String>?
+}
+
+// OpenStack node specification
+@metakube.SubResourceHint
+open class OpenstackNodeSpec extends formae.SubResource {
+    flavor: String
+    image: String
+    diskSize: Int?
+    useFloatingIP: Boolean?
+    instanceReadyCheckPeriod: String?
+    instanceReadyCheckTimeout: String?
+    serverGroupID: String?
+}
+
+// Azure node specification
+@metakube.SubResourceHint
+open class AzureNodeSpec extends formae.SubResource {
+    size: String
+    imageID: String?
+    assignPublicIP: Boolean?
+    osDiskSize: Int?
+    dataDiskSize: Int?
+    zones: Listing<String>?
+    tags: Map<String, String>?
+}
+
+// Cloud specification for node (exactly one required)
+@metakube.SubResourceHint
+open class NodeCloudSpec extends formae.SubResource {
+    aws: AWSNodeSpec?
+    openstack: OpenstackNodeSpec?
+    azure: AzureNodeSpec?
+}
+
+// Operating system specification (exactly one required)
+@metakube.SubResourceHint
+open class OperatingSystemSpec extends formae.SubResource {
+    ubuntu: UbuntuOS?
+    flatcar: FlatcarOS?
+}
+
+// Node version specification
+@metakube.SubResourceHint
+open class NodeVersions extends formae.SubResource {
+    kubelet: String?
+}
+
+// Node taint
+typealias TaintEffect = "NoSchedule"|"PreferNoSchedule"|"NoExecute"
+
+@metakube.SubResourceHint
+open class NodeTaint extends formae.SubResource {
+    effect: TaintEffect
+    key: String
+    value: String
+}
+
+// Node template
+@metakube.SubResourceHint
+open class NodeTemplate extends formae.SubResource {
+    cloud: NodeCloudSpec
+    operatingSystem: OperatingSystemSpec
+    versions: NodeVersions?
+    labels: Map<String, String>?
+    taints: Listing<NodeTaint>?
+}
+
+// Node deployment specification
+@metakube.SubResourceHint
+open class NodeDeploymentSpec extends formae.SubResource {
+    // Exactly one scaling method required
+    replicas: Int?
+    minReplicas: Int?
+    maxReplicas: Int?
+
+    template: NodeTemplate
+}
+
+// Node deployment resolvable for references
+open class NodeDeploymentResolvable extends formae.Resolvable {
+    hidden type = module.type
+
+    hidden id: NodeDeploymentResolvable = (this) {
+        property = "id"
+    }
+    hidden name: NodeDeploymentResolvable = (this) {
+        property = "name"
+    }
+}
+
+@metakube.ResourceHint {
+    type = module.type
+    identifier = "id"
+}
+open class NodeDeployment extends formae.Resource {
+    @metakube.FieldHint
+    projectID: String?
+
+    @metakube.FieldHint{createOnly = true}
+    clusterID: String
+
+    @metakube.FieldHint
+    name: String?
+
+    @metakube.FieldHint
+    spec: NodeDeploymentSpec
+
+    // Computed fields (returned by API, not set by user)
+    creationTimestamp: String?
+    deletionTimestamp: String?
+
+    hidden parent = this
+
+    hidden res: NodeDeploymentResolvable = new {
+        label = parent.label
+        stack = parent.stack?.label
+    }
+}

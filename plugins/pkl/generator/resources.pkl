@@ -8,6 +8,7 @@ module generator
 
 import "pkl:reflect"
 awsImports = import*("@aws/*/*.pkl")
+metakubeImports = import*("@metakube/*.pkl")
 
 open class Resource {
     type: String
@@ -20,6 +21,20 @@ open class Resource {
 function GetAllResourceTypes() = new Listing<Resource> {
 
     for (modName, moduleValue in awsImports.toMap()) {
+        when(reflect.Module(moduleValue).classes.length > 0) {
+            for (className, v in reflect.Module(moduleValue).classes) {
+                when(v.annotations.length > 0 && v.annotations[0].getClass().simpleName == "ResourceHint") {
+                    new Resource {
+                        type = v.annotations[0].getProperty("type")
+                        moduleName = "\(modName)"
+                        clazz = v.reflectee
+                    }
+                }
+            }
+        }
+    }
+
+    for (modName, moduleValue in metakubeImports.toMap()) {
         when(reflect.Module(moduleValue).classes.length > 0) {
             for (className, v in reflect.Module(moduleValue).classes) {
                 when(v.annotations.length > 0 && v.annotations[0].getClass().simpleName == "ResourceHint") {

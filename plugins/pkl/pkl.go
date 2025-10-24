@@ -307,9 +307,15 @@ func (p PKL) ProjectInit(path string, include []string) error {
 		}
 	}
 
+	// Determine if we're in dev mode and find project root
+	devMode := os.Getenv("FORMAE_DEV_MODE") != "" || p.isDevMode()
+	projectRoot := p.findProjectRoot()
+
 	evaluator, err := pkl.NewEvaluator(context.Background(), pkl.PreconfiguredOptions, pkl.WithFs(assets, "assets"), func(opts *pkl.EvaluatorOptions) {
 		opts.Properties = map[string]string{
-			"packages": strings.Join(include, ","),
+			"packages":    strings.Join(include, ","),
+			"devMode":     fmt.Sprintf("%t", devMode),
+			"projectRoot": projectRoot,
 		}
 	})
 	if err != nil {
@@ -340,8 +346,9 @@ func (p PKL) ProjectInit(path string, include []string) error {
 	if errors.Is(cmd.Err, exec.ErrDot) {
 		cmd.Err = nil
 	}
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("project resolve failed: %v", err)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("project resolve failed: %v\nOutput: %s", err, string(output))
 	}
 
 	return nil
@@ -456,6 +463,59 @@ func parseLogLevel(level string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+// isDevMode checks if we're running in development mode
+// This is true if the version.semver file exists in the project root
+func (p PKL) isDevMode() bool {
+	// Check if version.semver exists (only present in source tree)
+	exePath, err := os.Executable()
+	if err != nil {
+		return false
+	}
+
+	// Navigate up from the executable to find version.semver
+	dir := filepath.Dir(exePath)
+	for i := 0; i < 5; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "version.semver")); err == nil {
+			return true
+		}
+		dir = filepath.Dir(dir)
+	}
+
+	return false
+}
+
+// findProjectRoot finds the formae project root directory
+func (p PKL) findProjectRoot() string {
+	// First check FORMAE_PROJECT_ROOT env var
+	if root := os.Getenv("FORMAE_PROJECT_ROOT"); root != "" {
+		return root
+	}
+
+	// Try to find it relative to the executable
+	exePath, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+
+	// Navigate up from the executable to find version.semver
+	dir := filepath.Dir(exePath)
+	for i := 0; i < 5; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "version.semver")); err == nil {
+			return dir
+		}
+		dir = filepath.Dir(dir)
+	}
+
+	// If not found, try current working directory
+	if cwd, err := os.Getwd(); err == nil {
+		if _, err := os.Stat(filepath.Join(cwd, "version.semver")); err == nil {
+			return cwd
+		}
+	}
+
+	return ""
 }
 
 var Plugin = PKL{}

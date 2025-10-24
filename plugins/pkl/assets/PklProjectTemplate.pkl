@@ -11,7 +11,17 @@ local class Pkg {
   name: String
   version: semver.Version
 
-  function uri(): String = "package://hub.platform.engineering/plugins/\(plugin)/schema/pkl/\(name)/\(name)@\(version.toString())"
+  // For remote dependencies, use package URIs
+  function uri(): String =
+    "package://hub.platform.engineering/plugins/\(plugin)/schema/pkl/\(name)/\(name)@\(version.toString())"
+
+  // For local dependencies, use absolute file URIs
+  // Note: formae (pkl plugin) is at plugins/pkl/schema/, others are at plugins/{plugin}/schema/pkl/
+  function localImportPath(): String =
+    if (name == "formae")
+      "file://\(read("prop:projectRoot"))/plugins/pkl/schema/PklProject"
+    else
+      "file://\(read("prop:projectRoot"))/plugins/\(plugin)/schema/pkl/PklProject"
 }
 
 local packages = read("prop:packages").split(",").map((p) -> new Pkg {
@@ -20,18 +30,24 @@ local packages = read("prop:packages").split(",").map((p) -> new Pkg {
   version = semver.Version(p.split("@")[1])
 })
 
-dependencies {
-  for (pkg in packages) {
-    [pkg.name] {
-      uri = pkg.uri()
-    }
-  }
-}
+local devMode = read("prop:devMode").toBoolean()
+
+local dependenciesBlock =
+  if (devMode)
+    packages.map((pkg) -> "  [\"\(pkg.name)\"] = import(\"\(pkg.localImportPath())\")").join("\n")
+  else
+    packages.map((pkg) -> """
+      [\"\(pkg.name)\"] {
+        uri = "\(pkg.uri())"
+      }
+      """).join("\n")
 
 output {
   text = """
     amends "pkl:Project"
 
-    \(new PcfRenderer {}.renderDocument(module))
+    dependencies {
+    \(dependenciesBlock)
+    }
     """
 }

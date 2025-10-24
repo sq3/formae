@@ -1,0 +1,187 @@
+/*
+ * © 2025 Platform Engineering Labs Inc.
+ *
+ * SPDX-License-Identifier: FSL-1.1-ALv2
+ */
+
+module metakube.cluster
+
+import "../../../pkl/schema/formae.pkl"
+import "metakube.pkl"
+
+const type = "MetaKube::Kubernetes::Cluster"
+
+// Update window for node reboots
+@metakube.SubResourceHint
+open class UpdateWindow extends formae.SubResource {
+    start: String  // Time format: "Thu 02:00" or "02:00"
+    length: String  // Duration in Go time.ParseDuration format (e.g., "2h")
+}
+
+// OpenStack user credentials
+@metakube.SubResourceHint
+open class OpenstackUserCredentials extends formae.SubResource {
+    @metakube.FieldHint{writeOnly = true}
+    username: String?
+
+    @metakube.FieldHint{writeOnly = true}
+    password: String?
+
+    projectID: String?
+    projectName: String?
+}
+
+// OpenStack application credentials
+@metakube.SubResourceHint
+open class OpenstackApplicationCredentials extends formae.SubResource {
+    @metakube.FieldHint{writeOnly = true}
+    id: String?
+
+    @metakube.FieldHint{writeOnly = true}
+    secret: String?
+}
+
+// OpenStack cloud specification
+@metakube.SubResourceHint
+open class OpenstackCloudSpec extends formae.SubResource {
+    floatingIPPool: String?
+    securityGroup: String?
+    network: String?
+    subnetID: String?
+    subnetCIDR: String?
+    serverGroupID: String?
+
+    userCredentials: OpenstackUserCredentials?
+    applicationCredentials: OpenstackApplicationCredentials?
+}
+
+// AWS cloud specification
+@metakube.SubResourceHint
+open class AWSCloudSpec extends formae.SubResource {
+    @metakube.FieldHint{writeOnly = true}
+    accessKeyID: String
+
+    @metakube.FieldHint{writeOnly = true}
+    secretAccessKey: String
+
+    @metakube.FieldHint{createOnly = true}
+    vpcID: String
+
+    securityGroupID: String?
+    routeTableID: String?
+    instanceProfileName: String?
+    roleARN: String?
+    openstackBillingTenant: String
+}
+
+// Azure cloud specification
+@metakube.SubResourceHint
+open class AzureCloudSpec extends formae.SubResource {
+    clientID: String
+
+    @metakube.FieldHint{writeOnly = true}
+    clientSecret: String
+
+    subscriptionID: String
+    tenantID: String
+    availabilitySet: String?
+    resourceGroup: String?
+    routeTable: String?
+    securityGroup: String?
+    subnet: String?
+    vnet: String?
+    openstackBillingTenant: String
+}
+
+// Cloud provider specification (exactly one required)
+@metakube.SubResourceHint
+open class CloudSpec extends formae.SubResource {
+    openstack: OpenstackCloudSpec?
+    aws: AWSCloudSpec?
+    azure: AzureCloudSpec?
+}
+
+// SysEleven authentication
+@metakube.SubResourceHint
+open class Syseleven_Auth extends formae.SubResource {
+    realm: String?
+}
+
+// CNI plugin configuration
+typealias CNIPluginType = "cilium"|"canal"|"none"
+
+@metakube.SubResourceHint
+open class CNIPlugin extends formae.SubResource {
+    type: CNIPluginType
+}
+
+typealias IPFamily = "IPv4"|"IPv4+IPv6"
+
+// Cluster specification
+@metakube.SubResourceHint
+open class ClusterSpec extends formae.SubResource {
+    version: String
+    enableUserSSHKeyAgent: Boolean?
+    updateWindow: UpdateWindow?
+    cloud: CloudSpec
+    sys11auth: Syseleven_Auth?
+    oidc: Dynamic?
+    containerRuntime: String?
+    auditLogging: Boolean?
+    podSecurityPolicy: Boolean?
+    podNodeSelector: Boolean?
+    servicesCIDR: String?
+    podsCIDR: String?
+    cniPlugin: CNIPlugin?
+    clusterNetwork: Dynamic?
+}
+
+// Cluster resolvable for references
+open class ClusterResolvable extends formae.Resolvable {
+    hidden type = module.type
+
+    hidden id: ClusterResolvable = (this) {
+        property = "id"
+    }
+    hidden name: ClusterResolvable = (this) {
+        property = "name"
+    }
+}
+
+@metakube.ResourceHint {
+    type = module.type
+    identifier = "id"
+}
+open class Cluster extends formae.Resource {
+    @metakube.FieldHint{createOnly = true}
+    projectID: String
+
+    @metakube.FieldHint{createOnly = true}
+    dcName: String
+
+    @metakube.FieldHint
+    name: String
+
+    @metakube.FieldHint
+    labels: Map<String, String>?
+
+    @metakube.FieldHint
+    sshkeys: Set<String>?
+
+    @metakube.FieldHint
+    spec: ClusterSpec
+
+    // Computed fields (returned by API, not set by user)
+    creationTimestamp: String?
+    deletionTimestamp: String?
+    kubeConfig: String?
+    oidcKubeConfig: String?
+    kubeLoginKubeConfig: String?
+
+    hidden parent = this
+
+    hidden res: ClusterResolvable = new {
+        label = parent.label
+        stack = parent.stack?.label
+    }
+}
